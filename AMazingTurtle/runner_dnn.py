@@ -99,9 +99,11 @@ def draw_tk_maze(w, maze, edge_len, dim, border):
     (x,y) = calc_tk_coord(maze.start, edge_len, dim, border)
     draw_tk_box(w, x, y,len=edge_len, cor='yellow')
 
-dim=(20,20)
+dim=(5,5)
 edge_len = 30
 border = 10
+
+population=20 # number of bots per generation
 
 np.random.seed(0)
 
@@ -116,6 +118,7 @@ rbot = RefferenceBot()
 while not rbot.target_found:
     maze = Maze(dimentions=dim)
     rbot.find_path(maze)
+maze.set_min_path_lenght(rbot.path_len)
 print("The reference path length is %d" % rbot.path_len)
 
 turt = turtle.RawTurtle(canvas)
@@ -129,13 +132,19 @@ refer=turt.clone()
 
 draw_path(refer, rbot, edge_len, dim, col="blue")
 
-while True:
-    bot=DNNBot()
-    runner=turt.clone()
-    bot.find_path(maze)
-    draw_path(runner, bot, edge_len, dim, speed='fast')
-    if bot.target_found:
-        break
+bot=[]
+runner=[]
+for i in range( population):
+    bot.append(DNNBot())
+    runner.append(turt.clone())
+
+for i in range( population):
+    bot[i].find_path(maze)
+    draw_path(runner[i], bot[i], edge_len, dim, speed='fast')
+    print("Bot %d costs %f" % (i,bot[i].cost))
+    print(bot[i].get_dna())
+    # if bot.target_found:
+    #     break
 
 
 
@@ -157,7 +166,7 @@ while True:
 
 # draw_path(runner, bot, edge_len, dim)
 
-print("The DNN path length is %d" % bot.path_len)
+# print("The DNN path length is %d" % bot.path_len)
 
 
 master.mainloop()

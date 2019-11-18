@@ -92,6 +92,8 @@ class Maze():
         else:
             # Trough exeption!
             1
+        self.maxLength = self.xDim*self.yDim-len(self.obsticals)
+        self.minLength = int(self.xDim*self.yDim/2)
     
     def maze(self):
         m=np.full((self.xDim,self.yDim), 0)
@@ -99,7 +101,6 @@ class Maze():
         m[self.target[0]][self.target[1]]=self.targetVal
         for o in self.obsticals:
             m[o[0]][o[1]]=self.obsticalVal
-
         return m
     
     def get_start(self):
@@ -117,6 +118,15 @@ class Maze():
             return self.obsticalVal
         return 0
 
+    def set_min_path_lenght(self, len):
+        self.minLength = int(len)
+
+    def get_min_path_lenght(self):
+        return self.minLength
+
+    def get_max_path_lenght(self):
+        return self.maxLength
+        
 if __name__ == "__main__":
     test_maze=Maze(dimentions=(7,7))
     x=test_maze.maze()

@@ -172,17 +172,21 @@ class RefferenceBot(Bot):
         self.path_len=len(self.path)
 
 class DNNBot(Bot):
-    def __init__(self):
+    def __init__(self, dna=None):
         super().__init__()
         # define nn structure:
-        self.x_size=3   # input neurons
-        self.z1_size=6  # h1
-        self.z2_size=6  # h2
-        self.z3_size=4  # output
-        # initialize random waights:
-        self.w1=np.random.normal(-1,1,(self.x_size,self.z1_size))
-        self.w2=np.random.normal(-1,1,(self.z1_size+1,self.z2_size))
-        self.w3=np.random.normal(-1,1,(self.z2_size+1,self.z3_size))
+        self.a_size=[3,6,6,5]
+
+        if dna is None:
+            # initialize random waights:
+            self.w=[
+                np.random.normal(-1,1,(self.a_size[0],self.a_size[1])),
+                np.random.normal(-1,1,(self.a_size[1]+1,self.a_size[2])),
+                np.random.normal(-1,1,(self.a_size[2]+1,self.a_size[3]))
+            ]
+        self.a=[]
+        for i in self.a_size:
+            self.a.append(np.zeros(i))
 
     front_sight = 3
     side_sight = 3
@@ -195,7 +199,15 @@ class DNNBot(Bot):
        |
     '''
 
-    def get_sight(self):
+    def get_dna(self):
+        dna = []
+        for w_ in self.w:
+            dna+=list(w_.flatten())
+        return np.array(dna)
+
+
+
+    def get_sight(self,direction,dist):
         # returns the distance values to the next obsticle in front and 
         # on the sides. 
         # the distance is a value between -1 and 1 and is calculated like this
@@ -205,83 +217,63 @@ class DNNBot(Bot):
         # 0: nothing in sight                >----
         # 1: the target is one field away    >T
         # +1/max_sight*(max_sight-dist)...for target
-
         
         c = np.array(self.pos[0])
-        d = self.pos[1]
-        #front view
-        d_ = np.array(([1,0],[0,1],[-1,0],[0,-1])[d])
-        c_=c.copy()
-        front=0
-        for dist in range(0,self.front_sight):
-            c_+=d_
-            f = self.maze.get_field(tuple(c_))
+        d = self.pos[1]+direction
+        d = np.array(([1,0],[0,1],[-1,0],[0,-1])[d%4])
+        sight=0
+        for di_ in range(0,dist):
+            c+=d
+            f = self.maze.get_field(tuple(c))
             if not f:
                 continue
             if f == self.maze.targetVal:
-                front=1/self.front_sight*(self.front_sight-dist)
+                sight=1/dist*(dist-di_)
                 break
             if f == self.maze.obsticalVal:
-                front=-1/self.front_sight*(self.front_sight-dist)
+                sight=-1/dist*(dist-di_)
                 break
-        #left:
-        d_ = np.array(([0,1],[-1,0],[0,-1],[1,0])[d])
-        c_=c.copy()
-        left=0
-        for dist in range(0,self.side_sight):
-            c_+=d_
-            f = self.maze.get_field(tuple(c_))
-            if not f:
-                continue
-            if f == self.maze.targetVal:
-                left=1/self.side_sight*(self.side_sight-dist)
-                break
-            if f == self.maze.obsticalVal:
-                left=-1/self.side_sight*(self.side_sight-dist)
-                break
-        #right:
-        d_ = np.array(([0,-1],[1,0],[0,1],[-1,0])[d])
-        c_=c.copy()
-        right=0
-        for dist in range(0,self.side_sight):
-            c_+=d_
-            f = self.maze.get_field(tuple(c_))
-            if not f:
-                continue
-            if f == self.maze.targetVal:
-                right=1/self.side_sight*(self.side_sight-dist)
-                break
-            if f == self.maze.obsticalVal:
-                right=-1/self.side_sight*(self.side_sight-dist)
-                break
-        self.sight = np.array([[front,left,right]])
+        return sight
 
-    def calc_move(self,x):
-        z2 = np.dot(x, self.w1)
-        a2 = np.tanh(z2)
-        ba2 = np.ones((x.shape[0], 1))
-        a2 = np.concatenate((a2, ba2), axis=1)
+    def gen_input(self):
+        self.a[0] = np.array([[
+            self.get_sight(0, self.front_sight),
+            self.get_sight(+1, self.side_sight),
+            self.get_sight(-1, self.side_sight)]])
 
-        z3 = np.dot(a2, self.w2)
-        a3 = np.tanh(z3)
-        # we add the the 1 unit (bias) at the output of the second layer
-        ba3 = np.ones((a3.shape[0], 1))
-        a3 = np.concatenate((a3, ba3), axis=1)
+    def calc_move(self):
+        '''
+        Return the relative direction of the next move.
+        * 0...front
+        * 1...left
+        * 2...back
+        * 3...right
+        '''
+        # DNN calculation:
+        i = 1
+        while True:
+            # for i in range(1,len(self.a_size)):
+            z = np.dot(self.a[i-1], self.w[i-1])
+            # sigma function:
+            self.a[i] = np.tanh(z)
+            if i==len(self.a_size)-1:
+                break
+            # add the the 1 unit (bias) at the output
+            ba = np.ones((self.a[i-1].shape[0], 1))
+            self.a[i] = np.concatenate((self.a[i], ba), axis=1)
+            i+=1
 
-        # output layer, prediction of our network
-        z4 = np.dot(a3, self.w3)
-        a4 = np.tanh(z4)
-
+        # get highest output value
         r = []
-        for a_ in a4:
+        for a_ in self.a[-1]:
             r.append(np.where(a_ == np.amax(a_))[0][0])
         return np.where(a_ == np.amax(a_))[0][0]
 
     def get_new_pos(self):
         # mov = get_move()
-        self.get_sight()
-        mov = self.calc_move(self.sight)
-        dir = (self.pos[1]+mov)%4
+        self.gen_input()
+        mov = self.calc_move()
+        dir = (self.pos[1]+mov)%4 # new absolute direction
         
         self.pos = ([x + y for x, y in zip(self.pos[0], \
                     ([1,0],[0,1],[-1,0],[0,-1])[dir])], \
@@ -303,20 +295,26 @@ class DNNBot(Bot):
 
         self.path = [self.pos]
         self.target_found = False
-        max_steps = maze.xDim*maze.yDim 
+        max_steps = maze.get_max_path_lenght()
+        self.cost = 0.0
+        visit=np.zeros((maze.xDim,maze.yDim),dtype=int)
         while True:
             self.get_new_pos()
             self.path.append(self.pos)
 
             f = maze.get_field(self.pos[0])
             if f == maze.obsticalVal:
+                self.cost+=2
                 break
+
+            self.cost+=(visit[tuple(self.pos[0])]-1) / max_steps
+            visit[tuple(self.pos[0])]+=1
 
             if f == maze.targetVal:
                 self.target_found = True
+                self.cost-=1
                 break
-            max_steps-=1
-            if not max_steps:
+            if self.cost>1:
                 break
         
         self.path_len=len(self.path)
