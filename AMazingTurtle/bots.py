@@ -65,7 +65,7 @@ class Bot:
                 self.target_found = True
                 break
         
-        self.path_len=len(self.path)
+        self.path_len=len(self.path)-1
 
     def get_path(self):
         return self.path
@@ -116,6 +116,15 @@ class Bot:
                 elif m[x][y] == 8:
                     s+="X"
             print(s)
+    
+    def add_turtle(self, turtle, color='green'):
+        self.turtle=turtle
+        self.turtle.speed('fastest')
+        self.turtle.color(color)
+        self.turtle.pensize(3)
+        self.turtle.shape('turtle')
+        # t.resizemode("user")
+        self.turtle.shapesize(1)
 
 class RefferenceBot(Bot):
     def __init__(self):
@@ -169,7 +178,7 @@ class RefferenceBot(Bot):
             i = trace[i]['pred']
             j+=1
 
-        self.path_len=len(self.path)
+        self.path_len=len(self.path)-1
 
 class DNNBot(Bot):
     def __init__(self, dna=None):
@@ -317,7 +326,7 @@ class DNNBot(Bot):
             if self.cost>1:
                 break
         
-        self.path_len=len(self.path)
+        self.path_len=len(self.path)-1
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 # %%
 import turtle
 import tkinter as tk
+import time
+import numpy as np
 # from tkinter import *
 
 # %%
@@ -40,27 +42,36 @@ def calc_coord(pos,edge_len,dim):
     y = int(-edge_len*dim[1]/2 + pos[1]*edge_len + edge_len/2)
     return x,y
 
-def draw_path(t, bot, edge_len, dim, col="green", speed='normal'):
-    t.clear()
-    t.speed('fastest')
-    t.color(col)
-    t.pensize(3)
-    t.shape('turtle')
-    # t.resizemode("user")
-    t.shapesize(1)
-    t.penup()
+def draw_path(maze, bots, edge_len):
+    path=[]
+    max_path_len=0
+    for b_ in bots:
+        b_.turtle.clear()
+        b_.turtle.penup()
+        p_=b_.get_path()
+        b_.turtle.goto(calc_coord(p_[0][0], edge_len, (maze.xDim,maze.yDim)))
+        b_.turtle.showturtle()
+        b_.turtle.pendown()
+        path.append(p_[1:])
+        max_path_len = max(b_.path_len,max_path_len)
 
-    path = bot.get_path()
-    t.goto(calc_coord(path[0][0], edge_len, dim))
-    t.showturtle()
-    t.pendown()
-    t.speed(speed)
+    i=0
+    while i<=max_path_len:
+        for j in range(len(bots)):
+            try:
+                dir=path[j][i][1]
+            except IndexError:
+                continue
+            bots[j].turtle.setheading(dir*90)
+            bots[j].turtle.forward(edge_len)
+        time.sleep(0.05)
+        i+=1
+    # for (_, dir) in path[1:]:
+    #     t.setheading(dir*90)
+    #     t.forward(edge_len)
+    # print("all done")
 
-    for (_, dir) in path[1:]:
-        t.setheading(dir*90)
-        t.forward(edge_len)
-
-def calc_tk_coord(pos,edge_len,dim, border=0):
+def calc_tk_coord(pos,edge_len, dim, border=0):
     x_=pos[0]
     y_=dim[1]-pos[1]
 
@@ -75,9 +86,10 @@ def draw_tk_box(w, x, y, len=10, cor="black"):
     cy_=int(y+len/2)
     w.create_rectangle(cx, cy, cx_, cy_, fill=cor)
 
-def draw_tk_maze(w, maze, edge_len, dim, border):
-    width=edge_len*dim[0]+2*border
-    height=edge_len*dim[1]+2*border
+def draw_tk_maze(w, maze, edge_len, border):
+    width=edge_len*maze.xDim+2*border
+    height=edge_len*maze.yDim+2*border
+    dim=(maze.xDim,maze.yDim)
     xmax=int(width/2)
     xmin=-xmax
     ymax=int(height/2)
@@ -99,53 +111,67 @@ def draw_tk_maze(w, maze, edge_len, dim, border):
     (x,y) = calc_tk_coord(maze.start, edge_len, dim, border)
     draw_tk_box(w, x, y,len=edge_len, cor='yellow')
 
-dim=(5,5)
-edge_len = 30
+dim=(100,100)
+edge_len = 8
 border = 10
 
 population=20 # number of bots per generation
 
-np.random.seed(0)
+maze = None 
+bot = [RefferenceBot()]
+while not bot[0].target_found:
+    maze = Maze(dimentions=dim)
+    bot[0].find_path(maze)
+maze.set_min_path_lenght(bot[0].path_len)
+print("The reference path length is %d" % bot[0].path_len)
 
-width=edge_len*dim[0]+2*border
-height=edge_len*dim[1]+2*border
+m=np.full(dim, 0)
+m[0][50]=3
+m[99][50]=2
+m[50][50]=1
+maze = Maze(matrix=m)
+bot[0].find_path(maze)
+
+
+width=edge_len*maze.xDim+2*border
+height=edge_len*maze.yDim+2*border
 master = tk.Tk()
 canvas = tk.Canvas(master, width=width, height=height)
 canvas.pack()
-
-maze = None 
-rbot = RefferenceBot()
-while not rbot.target_found:
-    maze = Maze(dimentions=dim)
-    rbot.find_path(maze)
-maze.set_min_path_lenght(rbot.path_len)
-print("The reference path length is %d" % rbot.path_len)
 
 turt = turtle.RawTurtle(canvas)
 turt.hideturtle()
 turt.penup()
 
-draw_tk_maze(canvas, maze, edge_len, dim, border)
+draw_tk_maze(canvas, maze, edge_len, border)
 
+bot[0].add_turtle(turt.clone(), color="blue")
 
-refer=turt.clone()
+# draw_path(bot, edge_len, dim)
 
-draw_path(refer, rbot, edge_len, dim, col="blue")
-
-bot=[]
-runner=[]
-for i in range( population):
+np.random.seed(72)
+cor=[1,0.3,0]
+for i in range( 1, population+1):
     bot.append(DNNBot())
-    runner.append(turt.clone())
+    bot[i].add_turtle(turt.clone(),tuple(cor))
+    cor[1]+=0.03
+    cor[0]-=0.03
 
-for i in range( population):
+
+weights={}
+for i in range( 1, population+1):
     bot[i].find_path(maze)
-    draw_path(runner[i], bot[i], edge_len, dim, speed='fast')
-    print("Bot %d costs %f" % (i,bot[i].cost))
-    print(bot[i].get_dna())
-    # if bot.target_found:
-    #     break
+    if bot[i].cost in weights.keys():
+        weights[bot[i].cost].append(bot[i])
+    else:
+        weights[bot[i].cost]=[bot[i]]
+    if bot[i].target_found:
+        print("Bot %d costs %f, made %d steps and found the goal!" % (i,bot[i].cost,bot[i].path_len-1))
+    else:
+        print("Bot %d costs %f, made %d steps and dit not find the goal!" % (i,bot[i].cost,bot[i].path_len-1))
 
+print([*weights])
+draw_path(maze, bot, edge_len)
 
 
 # random runner:
@@ -170,3 +196,6 @@ for i in range( population):
 
 
 master.mainloop()
+
+
+# %%

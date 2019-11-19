@@ -27,27 +27,24 @@ class Maze():
            matrix.max() > max(self.startVal, \
                               self.targetVal, \
                               self.obsticalVal):
-            1
-            #Exception
+            raise ValueError('The input matrix must only contain int from 0 to 3!')
         
         self.xDim=len(matrix)
         self.yDim=len(matrix[0])
         for r in matrix:
             if len(r) != self.yDim:
-                1 #todo: exeption!!
+                raise IndexError('All rows must be the same size!')
 
         x=self.find_location(matrix, self.startVal)
         if len(x)==1:  
             self.start=x[0]
         else:
-            1
-            #exeption!
+            raise ValueError('Exact one start is allowed')
         x=self.find_location(matrix, self.targetVal)
         if len(x)==1:
             self.target=x[0]
         else:
-            1
-            #exeption!
+            raise ValueError('Exact one start is allowed')
         self.obsticals=self.find_location(matrix, self.obsticalVal)
 
     def import_from_file(self, file):
