@@ -3,39 +3,13 @@ import turtle
 import tkinter as tk
 import time
 import numpy as np
+from random import randint
 # from tkinter import *
 
 # %%
 from maze import Maze
 from bots import *
-# %%
 
-def draw_box(t, x, y, len=10, cor="black"):
-    t.speed("fastest")
-    t.hideturtle()
-    t.penup()
-    t.fillcolor(cor)
-    t.goto(x,y)
-    t.begin_fill()
-    for i in range(4):
-        t.forward(len)           
-        t.left(90)
-    t.end_fill()
-
-def draw_maze(w, maze, edge_len, dim):
-    w.clear()
-    for cord in maze.obsticals:
-        x = int(-edge_len*dim[0]/2 + cord[0]*edge_len)
-        y = int(-edge_len*dim[1]/2 + cord[1]*edge_len)
-        draw_box(t, x, y,len=edge_len)
-
-    x = int(-edge_len*dim[0]/2 + maze.target[0]*edge_len)
-    y = int(-edge_len*dim[1]/2 + maze.target[1]*edge_len)
-    draw_box(t, x, y,len=edge_len, cor='red')
-
-    x = int(-edge_len*dim[0]/2 + maze.start[0]*edge_len)
-    y = int(-edge_len*dim[1]/2 + maze.start[1]*edge_len)
-    draw_box(t, x, y,len=edge_len, cor='yellow')
 # %%
 def calc_coord(pos,edge_len,dim):
     x = int(-edge_len*dim[0]/2 + pos[0]*edge_len + edge_len/2)
@@ -111,11 +85,13 @@ def draw_tk_maze(w, maze, edge_len, border):
     (x,y) = calc_tk_coord(maze.start, edge_len, dim, border)
     draw_tk_box(w, x, y,len=edge_len, cor='yellow')
 
-dim=(100,100)
-edge_len = 8
+dim=(30,20)
+edge_len = 16
 border = 10
+seed=42
 
 population=20 # number of bots per generation
+mut_rate = 0.1 # mutation rate
 
 maze = None 
 bot = [RefferenceBot()]
@@ -126,9 +102,9 @@ maze.set_min_path_lenght(bot[0].path_len)
 print("The reference path length is %d" % bot[0].path_len)
 
 m=np.full(dim, 0)
-m[0][50]=3
-m[99][50]=2
-m[50][50]=1
+m[1][int(dim[1]/2)]=3
+m[int(dim[0]-1)][int(dim[1]/2)]=2
+m[int(dim[0]/2)][int(dim[1]/2)]=1
 maze = Maze(matrix=m)
 bot[0].find_path(maze)
 
@@ -144,35 +120,64 @@ turt.hideturtle()
 turt.penup()
 
 draw_tk_maze(canvas, maze, edge_len, border)
+time.sleep(1)
 
 bot[0].add_turtle(turt.clone(), color="blue")
 
-# draw_path(bot, edge_len, dim)
+target_count=0
+target_bots=[]
 
-np.random.seed(72)
-cor=[1,0.3,0]
+np.random.seed(seed)
+
+cor=[1.0,0.3,0.1]
 for i in range( 1, population+1):
     bot.append(DNNBot())
     bot[i].add_turtle(turt.clone(),tuple(cor))
     cor[1]+=0.03
     cor[0]-=0.03
 
+dna = [None]*(population+1)
+generation=0
+while True:
+    generation+=1
+    survivor = []
+    finisher = []
+    weights={}
+    for i in range( 1, population+1):
+        bot[i].find_path(maze)
+        if bot[i].cost in weights.keys():
+            weights[bot[i].cost].append(bot[i])
+        else:
+            weights[bot[i].cost]=[bot[i]]
+        if bot[i].target_found:
+            # target_bots.append(bt[i])
+            # target_count+=1
+            survivor.append(i)
+            finisher.append(i)
+            # print("Bot %d costs %f, made %d steps and found the goal!" % (i,bot[i].cost,bot[i].path_len-1))
+        elif bot[i].crashed:
+            pass 
+            # print("Bot %d costs %f, made %d steps and crshed!" % (i,bot[i].cost,bot[i].path_len-1))
+        else:
+            survivor.append(i)
+            # print("Bot %d costs %f, made %d steps and dit not find the goal!" % (i,bot[i].cost,bot[i].path_len-1))
+        dna[i] = bot[i].get_dna()
 
-weights={}
-for i in range( 1, population+1):
-    bot[i].find_path(maze)
-    if bot[i].cost in weights.keys():
-        weights[bot[i].cost].append(bot[i])
-    else:
-        weights[bot[i].cost]=[bot[i]]
-    if bot[i].target_found:
-        print("Bot %d costs %f, made %d steps and found the goal!" % (i,bot[i].cost,bot[i].path_len-1))
-    else:
-        print("Bot %d costs %f, made %d steps and dit not find the goal!" % (i,bot[i].cost,bot[i].path_len-1))
+    print("in generation %i %i bots survived and %i bots finished!" % (generation, len(survivor), len(finisher)))
+    # print([*weights])
+    if not generation%10:
+        draw_path(maze, bot, edge_len)
 
-print([*weights])
-draw_path(maze, bot, edge_len)
-
+    crossover = finisher + survivor + finisher
+    # print(survivor, finisher, crossover)
+    for i in range( 1, population+1):
+        x = randint(0,len(crossover)-1)
+        y = randint(0,len(crossover)-1)
+        z = randint(0,bot[i].dna_size-1)
+        d = np.concatenate((dna[crossover[x]][:z],dna[crossover[y]][z:]))
+        for j in range(int(bot[i].dna_size*mut_rate)):
+            d[j]+=d[j]*mut_rate*randint(-1,1)
+        bot[i].set_dna(d)
 
 # random runner:
 # bot=Bot()

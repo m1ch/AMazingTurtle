@@ -181,21 +181,31 @@ class RefferenceBot(Bot):
         self.path_len=len(self.path)-1
 
 class DNNBot(Bot):
+    def random_dna(self):
+        self.w=[
+                np.random.normal(-1,1,(self.a_size[0],self.a_size[1]-1)),
+                np.random.normal(-1,1,(self.a_size[1],self.a_size[2]-1)),
+                np.random.normal(-1,1,(self.a_size[2],self.a_size[3]))
+            ]
+
     def __init__(self, dna=None):
         super().__init__()
         # define nn structure:
-        self.a_size=[3,6,6,5]
+        self.a_size=[3,7,7,4]
+        self.dna_size=0
+        for i in range(1,len(self.a_size)):
+            if i < len(self.a_size)-1:
+                self.dna_size+=self.a_size[i-1]*(self.a_size[i]-1)
+            else:
+                self.dna_size+=self.a_size[i-1]*self.a_size[i]
 
         if dna is None:
             # initialize random waights:
-            self.w=[
-                np.random.normal(-1,1,(self.a_size[0],self.a_size[1])),
-                np.random.normal(-1,1,(self.a_size[1]+1,self.a_size[2])),
-                np.random.normal(-1,1,(self.a_size[2]+1,self.a_size[3]))
-            ]
-        self.a=[]
-        for i in self.a_size:
-            self.a.append(np.zeros(i))
+            self.random_dna()
+        else:
+            self.w = [None]*(len(self.a_size)-1)
+            self.set_dna(dna)
+        self.a=[None]*len(self.a_size)
 
     front_sight = 3
     side_sight = 3
@@ -214,8 +224,18 @@ class DNNBot(Bot):
             dna+=list(w_.flatten())
         return np.array(dna)
 
-
-
+    def set_dna(self, dna):
+        if len(dna)!=self.dna_size:
+            raise ValueError('The input vector is not the same size as the dna')
+        
+        offset=0
+        a_s = self.a_size.copy()
+        a_s[-1]+=1
+        for i in range(1, len(a_s)):
+            size=a_s[i-1]*(a_s[i]-1)
+            self.w[i-1] = (dna[offset:offset+size]).reshape((a_s[i-1],a_s[i]-1))
+            offset+=size
+        
     def get_sight(self,direction,dist):
         # returns the distance values to the next obsticle in front and 
         # on the sides. 
@@ -307,12 +327,18 @@ class DNNBot(Bot):
         max_steps = maze.get_max_path_lenght()
         self.cost = 0.0
         visit=np.zeros((maze.xDim,maze.yDim),dtype=int)
+        self.crashed=False
         while True:
             self.get_new_pos()
             self.path.append(self.pos)
 
+            if self.path.count(self.pos)>1:
+                # already did this step before. No escape possible
+                break
+
             f = maze.get_field(self.pos[0])
             if f == maze.obsticalVal:
+                self.crashed = True
                 self.cost+=2
                 break
 
@@ -344,10 +370,19 @@ if __name__ == "__main__":
     bot.print_path()
     
     bot2=DNNBot()
+    print("dna", bot2.get_dna())
     bot2.find_path(test_maze)
-    print(test_maze.maze())
-    bot2.get_sight()
-    print(bot2.sight)
+    bot.print_path()
+    bot2.print_path()
+    dna = bot2.get_dna()
+    bot2.set_dna(np.zeros_like(dna))
+    bot2.find_path(test_maze)
+    bot2.print_path()
+
+
+
+    # print(test_maze.maze())
+    # print(bot2.sight)
 
 
 
