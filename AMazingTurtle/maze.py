@@ -123,6 +123,41 @@ class Maze():
 
     def get_max_path_lenght(self):
         return self.maxLength
+
+    def set_target(self, coord):
+        try:
+            self.obsticals.remove(tuple(coord))
+        except ValueError:
+            pass
+        if self.start != tuple(coord):
+            self.target = tuple(coord)
+
+    def set_start(self, coord):
+        try:
+            self.obsticals.remove(tuple(coord))
+        except ValueError:
+            pass
+        if self.target != tuple(coord):
+            self.start = tuple(coord)
+            return True
+        return False
+
+    def add_obstical(self, coord):
+        if self.start == tuple(coord) or \
+                self.target == tuple(coord):
+            return False
+        if not self.obsticals.count(tuple(coord)):
+            self.obsticals.append(tuple(coord))
+            return True
+        return False
+    
+    def rm_obstical(self, coord):
+        try:
+            self.obsticals.remove(tuple(coord))
+        except ValueError:
+            return False
+        return True
+        
         
 if __name__ == "__main__":
     test_maze=Maze(dimentions=(7,7))

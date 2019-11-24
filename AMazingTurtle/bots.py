@@ -191,7 +191,7 @@ class DNNBot(Bot):
     def __init__(self, dna=None):
         super().__init__()
         # define nn structure:
-        self.a_size=[3,7,7,4]
+        self.a_size=[4,7,7,4]
         self.dna_size=0
         for i in range(1,len(self.a_size)):
             if i < len(self.a_size)-1:
@@ -268,7 +268,8 @@ class DNNBot(Bot):
         self.a[0] = np.array([[
             self.get_sight(0, self.front_sight),
             self.get_sight(+1, self.side_sight),
-            self.get_sight(-1, self.side_sight)]])
+            self.get_sight(-1, self.side_sight),
+            -1+self.pos[1]*2/3]]) # use compass
 
     def calc_move(self):
         '''
@@ -354,6 +355,94 @@ class DNNBot(Bot):
         
         self.path_len=len(self.path)-1
 
+class Dna():
+    def __init__(self, dna=None):
+        pass
+
+    def crossover(bot, cros=None, mutation=0.1):
+        if cros is None:
+            cros = [ 
+                9, # cross first with next
+                3, # cross second with
+                1, # cross 
+                1, # cross
+                1  # add x new random bots
+            ]  # The remaining will be random crossed
+        
+        finisher = {}
+        survivor = {}
+        died = {}
+        for i in range( len(bot)):
+            # if bot[i].cost in weights.keys():
+            #     weights[bot[i].cost].append(bot[i])
+            # else:
+            #     weights[bot[i].cost]=[bot[i]]
+            if bot[i].target_found:
+                if bot[i].path_len in finisher.keys():
+                    finisher[bot[i].path_len].append(bot[i].get_dna())
+                else:
+                    finisher[bot[i].path_len] = [bot[i].get_dna()]
+            elif bot[i].crashed:
+                if bot[i].path_len in died.keys():
+                    died[bot[i].path_len].append(bot[i].get_dna())
+                else:
+                    died[bot[i].path_len] = [bot[i].get_dna()]
+            else:
+                if bot[i].path_len in survivor.keys():
+                    survivor[bot[i].path_len].append(bot[i].get_dna())
+                else:
+                    survivor[bot[i].path_len] = [bot[i].get_dna()]
+        dna = []
+
+        # finisher with the shortes path
+        for i in sorted(finisher):
+            dna += finisher[i]
+
+        # survivor with the longest path
+        for i in list(reversed(sorted(survivor))):
+            dna += survivor[i]
+
+        # died after the longest path
+        for i in list(reversed(sorted(died))):
+            dna += died[i]
+
+        setBot = 0
+        for i in range(len(cros)-1):
+            for j in range(i+1,cros[i]+i+1):
+                # print("cross %i with %i" % (i,j))
+                d0 = i
+                d1 = j
+                crosPoint = randint(0,bot[i].dna_size-1)
+                if j%1:
+                    d = np.concatenate((dna[d0][:crosPoint],\
+                                        dna[d1][crosPoint:]))
+                else:
+                    d = np.concatenate((dna[d1][:crosPoint],\
+                                        dna[d0][crosPoint:]))
+                bot[setBot].set_dna(d)
+                setBot+=1
+
+        while setBot < len(bot)-cros[-1]:
+            d0 = randint(0,len(dna)-1)
+            d1 = randint(0,len(dna)-1)
+            # print("cross %i with %i" % (d0,d1))
+            crosPoint = randint(0,bot[i].dna_size-1)
+            d = np.concatenate((dna[d0][:crosPoint],\
+                                dna[d1][crosPoint:]))
+            bot[setBot].set_dna(d)
+            setBot += 1
+        
+        for i in range(len(bot)-cros[-1],len(bot)):
+            bot[i].random_dna()
+            # print("random %i" % (i))
+
+        # mutation:
+        for i in range( 0, len(bot)):
+            d = bot[i].get_dna()
+            for _ in range(int(bot[i].dna_size*mut_rate)):
+                k = randint(0,bot[i].dna_size-1)
+                d[k]+=d[k] * mut_rate * randint(-1,1)
+            bot[i].set_dna(d)
 
 if __name__ == "__main__":
     # test_maze=np.full((10,10), 0)
