@@ -4,6 +4,7 @@ import tkinter as tk
 import time
 import numpy as np
 from random import randint
+import os
 # from tkinter import *
 
 # %%
@@ -183,9 +184,12 @@ seed=23
 population=20 # number of bots per generation
 mut_rate = 0.1 # mutation rate
 
-enablePlot = True
+if not "DISPLAY" in os.environ:
+    enablePlot = False
+else:
+    enablePlot = True
+    
 plotN=100000
-
 
 maze = None 
 bot = [RefferenceBot()]
