@@ -4,6 +4,7 @@ import tkinter as tk
 import time
 import numpy as np
 from random import randint
+import os
 # from tkinter import *
 
 # %%
